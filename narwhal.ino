@@ -3,19 +3,6 @@ const int colCount = 4;  // Number of column pins
 int rowPins[rowCount] = {6, 5, 4, 3, 2};  // Matrix row pin numbers
 int colPins[colCount] = {10, 9, 8, 7};  // Matrix column pin numbers
 
-/*int currentKeyProfile = 1;
-int keys1[rowCount][colCount];
-int keys2[rowCount][colCount];
-int keys3[rowCount][colCount];
-
-int keys[rowCount][colCount] = {
-  {KEY_1, KEY_2, KEY_3, KEY_4},
-  {KEY_5, KEY_TAB, KEY_Q, KEY_W},
-  {KEY_E, KEY_R, KEY_CAPS_LOCK, KEY_A},
-  {KEY_S, KEY_D, KEY_F, KEY_LEFT_SHIFT},
-  {KEY_Z, KEY_X, KEY_C, KEY_V}
-};*/
-
 int keys[rowCount][colCount] = {
   {1,2, 3, 4},
   {5, 6, 7, 8},
@@ -35,15 +22,7 @@ void setup() {
   pinMode(17, INPUT_PULLUP);
   pinMode(18, INPUT_PULLUP);
   
-  /*if (EEPROM.read(0) == 0) {
-    keys1 = {
-      {KEY_1, KEY_2, KEY_3, KEY_4},
-      {KEY_5, KEY_TAB, KEY_Q, KEY_W},
-      {KEY_E, KEY_R, KEY_CAPS_LOCK, KEY_A},
-      {KEY_S, KEY_D, KEY_F, KEY_LEFT_SHIFT},
-      {KEY_Z, KEY_X, KEY_C, KEY_V}
-    };
-  }*/
+  Joystick.useManualSend(true);
 }
 
 void loop() {
@@ -65,16 +44,6 @@ void scanMatrix() {
     for (int z = 0; z < colCount; z++) {
       int col = colPins[z];
       int key = keys[i][z];
-      /*int key = -1;
-      
-      switch (currentKeyProfile) {
-        case 1:
-          key = keys1[i][z];
-        case 2:
-          key = keys2[i][z];
-        case 3:
-          key = keys3[i][z];
-      }*/
 
       // Check the column for low voltage
       if (checkColumn(col)) {
@@ -86,7 +55,7 @@ void scanMatrix() {
       }
     }
 
-    digitalWrite(row, HIGH);  // Set the row high
+    digitalWriteFast(row, HIGH);  // Set the row high
   }
   
   Joystick.button(21, !digitalRead(1));
@@ -97,6 +66,8 @@ void scanMatrix() {
   Joystick.button(25, !digitalRead(16));
   Joystick.button(26, !digitalRead(17));
   Joystick.button(27, !digitalRead(18));
+  
+  Joystick.send_now();
 }
 
 // Set all column pins to input pullup
@@ -111,7 +82,7 @@ void resetColumns() {
 // Verify row pin is output and set low voltage
 void activateRow(int row) {
   pinMode(row, OUTPUT);
-  digitalWrite(row, LOW);
+  digitalWriteFast(row, LOW);
 }
 
 // Check column pin
