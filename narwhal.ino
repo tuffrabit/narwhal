@@ -1,7 +1,24 @@
+#include <EEPROM.h>
+
+#define  STICK_X 9
+#define STICK_Y 8
+
 const int rowCount = 5;  // Number of row pins
 const int colCount = 4;  // Number of column pins
+const int thumbButton = 1;
+const int joystickButton = 21;
 int rowPins[rowCount] = {6, 5, 4, 3, 2};  // Matrix row pin numbers
 int colPins[colCount] = {10, 9, 8, 7};  // Matrix column pin numbers
+int Xstick;
+int Ystick;
+int deadzone;
+int upperBound;
+int lowerBound;
+bool isInCalibration;
+bool isCalibrationButtonPressed;
+unsigned long calibrationButtonLastPressedTimeStamp;
+unsigned long calibrationButtonPressedDuration;
+unsigned long calibrationWriteLastTimeStamp;
 
 int keys[rowCount][colCount] = {
   {1,2, 3, 4},
@@ -13,8 +30,8 @@ int keys[rowCount][colCount] = {
 
 void setup() {
   resetColumns();  // Setup column pins
-  pinMode(1, INPUT_PULLUP);
-  pinMode(21, INPUT_PULLUP);
+  pinMode(thumbButton, INPUT_PULLUP);
+  pinMode(joystickButton, INPUT_PULLUP);
   
   pinMode(14, INPUT_PULLUP);
   pinMode(15, INPUT_PULLUP);
@@ -23,6 +40,17 @@ void setup() {
   pinMode(18, INPUT_PULLUP);
   
   Joystick.useManualSend(true);
+  
+  setDeadzone();
+  setBounds();
+  isInCalibration = false;
+  isCalibrationButtonPressed = false;
+  calibrationButtonLastPressedTimeStamp = 0;
+  calibrationButtonPressedDuration = 0;
+  calibrationWriteLastTimeStamp = 0;
+  
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
 }
 
 void loop() {
@@ -31,10 +59,25 @@ void loop() {
 
 // Run through matrix row and column pins
 void scanMatrix() {
-  Joystick.X(analogRead(9));
-  Joystick.Y(1023 - analogRead(8));
+  Xstick = analogRead(STICK_X);
+  Ystick = 1023 - analogRead(STICK_Y);
+  isCalibrationButtonPressed = !digitalRead(joystickButton);
   
-  // Activate each row pin one at a time
+  if (!isInCalibration) {
+    checkCalibrationTrigger();
+    
+    if ((Xstick > 512 && Xstick <= upperBound) || (Xstick < 512 && Xstick >= lowerBound)) {
+      Xstick = 512;
+    }
+  
+    if ((Ystick > 512 && Ystick <= upperBound) || (Ystick < 512 && Ystick >= lowerBound)) {
+      Ystick = 512;
+    }
+
+    Joystick.X(Xstick);
+    Joystick.Y(Ystick);
+    
+    // Activate each row pin one at a time
   for (int i = 0; i < rowCount; i++) {
     int row = rowPins[i];
     
@@ -58,8 +101,8 @@ void scanMatrix() {
     digitalWriteFast(row, HIGH);  // Set the row high
   }
   
-  Joystick.button(21, !digitalRead(1));
-  Joystick.button(22, !digitalRead(21));
+  Joystick.button(21, !digitalRead(thumbButton));
+  Joystick.button(22, !digitalRead(joystickButton));
   
   Joystick.button(23, !digitalRead(14));
   Joystick.button(24, !digitalRead(15));
@@ -68,6 +111,10 @@ void scanMatrix() {
   Joystick.button(27, !digitalRead(18));
   
   Joystick.send_now();
+  }
+  else {
+    persistBounds();
+  }
 }
 
 // Set all column pins to input pullup
@@ -98,4 +145,54 @@ boolean checkColumn(int col) {
   }
 
   return returnValue;
+}
+
+void setDeadzone() {
+  deadzone = 0;
+  deadzone = EEPROM.read(0) << 8 | EEPROM.read(1);
+}
+
+void setBounds() {
+  deadzone = deadzone - 512;
+  upperBound = 512 + (deadzone + 10);
+  lowerBound = 512 - (deadzone + 10);
+}
+
+void checkCalibrationTrigger() {
+  unsigned long now = millis();
+  
+  if (isCalibrationButtonPressed) {
+    if (calibrationButtonLastPressedTimeStamp == 0) {
+      calibrationButtonLastPressedTimeStamp = now;
+    }
+    
+    calibrationButtonPressedDuration = calibrationButtonPressedDuration + (now - calibrationButtonLastPressedTimeStamp);
+    calibrationButtonLastPressedTimeStamp = now;
+  }
+  else {
+    calibrationButtonLastPressedTimeStamp = 0;
+    calibrationButtonPressedDuration = 0;
+  }
+
+  if (calibrationButtonPressedDuration >= 5000) {
+    isInCalibration = true;
+    digitalWrite(13, HIGH);
+  }
+}
+
+void persistBounds() {
+  unsigned long now = millis();
+  
+  if (((calibrationWriteLastTimeStamp + now) - calibrationWriteLastTimeStamp) >= 1000) {
+    int highValue = Xstick;
+    
+    if (Ystick > Xstick) {
+      highValue = Ystick;
+    }
+
+    EEPROM.write(0, highByte(highValue));
+    EEPROM.write(1, lowByte(highValue));
+
+    calibrationWriteLastTimeStamp = now;
+  }
 }
