@@ -91,7 +91,6 @@ void scanMatrix() {
       // Check the column for low voltage
       if (checkColumn(col)) {
           Joystick.button(key, true); // Press the key
-          //delay(2);  // Delay to prevent phantom key presses
       }
       else {
           Joystick.button(key, false);  // Release the key
@@ -109,6 +108,12 @@ void scanMatrix() {
   Joystick.button(25, !digitalRead(16));
   Joystick.button(26, !digitalRead(17));
   Joystick.button(27, !digitalRead(18));
+  
+  Joystick.Z(512);
+  Joystick.Zrotate(512);
+  Joystick.sliderLeft(0);
+  Joystick.sliderRight(0);
+  Joystick.hat(-1);
   
   Joystick.send_now();
   }
